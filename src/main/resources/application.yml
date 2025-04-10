@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: ImagesDownloader
+
+thymeleaf:
+  prefix: classpath:/resources/templates
+  suffix: .html
