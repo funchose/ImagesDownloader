@@ -1,6 +1,5 @@
-package com.ss.ImagesDownloader;
+package com.ss.imagesDownloader;
 
-import java.io.IOException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
