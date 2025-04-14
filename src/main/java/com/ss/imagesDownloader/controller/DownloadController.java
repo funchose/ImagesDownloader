@@ -2,6 +2,7 @@ package com.ss.imagesDownloader.controller;
 
 import com.ss.imagesDownloader.dto.DownloadFormDto;
 import com.ss.imagesDownloader.dto.DownloadResponseDto;
+import com.ss.imagesDownloader.exceptions.ExceptionForUser;
 import com.ss.imagesDownloader.service.DownloadService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,7 +32,7 @@ public class DownloadController {
     DownloadResponseDto response = new DownloadResponseDto();
     try {
       response = downloadService.downloadImagesFromUrl(form);
-    } catch (RuntimeException exception) {
+    } catch (ExceptionForUser exception) {
       response.setErrorMessage(exception.getMessage());
     }
     model.addAttribute("downloadFormDto", form);

@@ -3,6 +3,7 @@ package com.ss.imagesDownloader.service;
 import com.ss.imagesDownloader.ConfigLoader;
 import com.ss.imagesDownloader.dto.DownloadFormDto;
 import com.ss.imagesDownloader.dto.DownloadResponseDto;
+import com.ss.imagesDownloader.exceptions.ExceptionForUser;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -11,20 +12,29 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DownloadService {
-  @NonNull
-  private final static String BASE_PATH = new ConfigLoader().getPath();
+  private final String basePath;
   private String message;
   private int downloadedImagesAmount;
   private int imgFailedToDownloadAmount;
+  private final ExecutorService executorService;
+
+  public DownloadService(ConfigLoader configLoader) {
+    basePath = configLoader.getPath();
+    int threadsNumber = configLoader.getThreadsNumber();
+    this.executorService = Executors.newFixedThreadPool(threadsNumber);
+  }
 
   public DownloadResponseDto downloadImagesFromUrl(DownloadFormDto form) {
     String htmlUrl = form.getUrl();
@@ -42,8 +52,17 @@ public class DownloadService {
     String truncatedUrl = htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
     var imgUrls = parseImgUrls(truncatedUrl, html);
     var folderName = new File(form.getFolderName());
-    downloadImagesIntoFolder(imgUrls, folderName.getName());
-    return new DownloadResponseDto(downloadedImagesAmount, imgFailedToDownloadAmount, message);
+    Future<?> imgDownloadFuture = executorService.submit(() ->
+        downloadImagesIntoFolder(imgUrls, folderName.getPath()));
+    try {
+      imgDownloadFuture.get();
+    } catch (InterruptedException exception) {
+    } catch (ExecutionException exception) {
+      imgFailedToDownloadAmount++;
+    }
+    //executorService.shutdown();
+    return new DownloadResponseDto(imgUrls.size() - imgFailedToDownloadAmount,
+        imgFailedToDownloadAmount, message);
   }
 
   private String getHtml(String urlString) {
@@ -56,9 +75,9 @@ public class DownloadService {
       reader = new BufferedReader(
           new InputStreamReader(con.getInputStream()));
     } catch (MalformedURLException | ProtocolException exception) {
-      throw new RuntimeException("URL введен некорректно: " + urlString);
+      throw new ExceptionForUser("URL введен некорректно: " + urlString);
     } catch (IOException e) {
-      throw new RuntimeException("Невозможно подключиться к сайту: " + urlString);
+      throw new ExceptionForUser("Невозможно подключиться к сайту: " + urlString);
     }
     StringBuilder htmlCode = new StringBuilder();
     String inputLine;
@@ -68,7 +87,7 @@ public class DownloadService {
       }
       reader.close();
     } catch (IOException e) {
-      throw new RuntimeException("Ошибка чтения HTML по URL: " + urlString);
+      throw new ExceptionForUser("Ошибка чтения HTML по URL: " + urlString);
     }
     try {
       con.disconnect();
@@ -87,10 +106,10 @@ public class DownloadService {
 
   private void downloadImagesIntoFolder(List<String> urls, String folderName) {
     imgFailedToDownloadAmount = 0;
-    String folderPath = BASE_PATH + "/" + folderName + "/";
+    String folderPath = basePath + "/" + folderName + "/";
     File folder = new File(folderPath);
     if (!folder.exists()) {
-      folder.mkdirs();  //TODO ask about folder/folder/folder
+      folder.mkdirs();
     }
     for (String url : urls) {
       URL imgUrl;
@@ -141,6 +160,5 @@ public class DownloadService {
         }
       }
     }
-    downloadedImagesAmount = urls.size() - imgFailedToDownloadAmount;
   }
 }

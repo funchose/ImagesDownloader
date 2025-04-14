@@ -13,44 +13,53 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ConfigLoader {
-  private final String path;
+  private String path = null;
+  private Integer threadsNumber = null;
   private static final String CONFIG_FILE = "conf.txt";
-
   private final static String PATH_PROPERTY = "folder";
+  private final static String THREADS_NUMBER_PROPERTY = "threads";
   private static final Logger logger = LogManager.getLogger();
 
   public ConfigLoader() {
-    this.path = loadPath();
+    loadProperties();
   }
 
   public String getPath() {
     return path;
   }
 
-  private String loadPath() {
+  public int getThreadsNumber() {
+    return threadsNumber;
+  }
+
+  private void loadProperties() {
     Properties properties = new Properties();
-    InputStream is;
-    String path;
+    InputStream is = null;
+    String path = null;
+    int threadsNumber = 0;
     try {
       is = new FileInputStream(CONFIG_FILE);
     } catch (FileNotFoundException exception) {
       logger.error("config file is not found: " + CONFIG_FILE);
       System.exit(1);
-      return null;
     }
     try {
       properties.load(is);
-      path = properties.getProperty(PATH_PROPERTY);
-      if (path == null) {
+      if (properties.getProperty(PATH_PROPERTY).isEmpty()) {
         logger.error("property " + PATH_PROPERTY
-            + "is not found in config file " + CONFIG_FILE);
+            + " is not found in config file " + CONFIG_FILE);
         System.exit(1);
-        return null;
       }
+      if (properties.getProperty(THREADS_NUMBER_PROPERTY).isEmpty()) {
+        logger.error("property " + THREADS_NUMBER_PROPERTY
+            + " is not found in config file " + CONFIG_FILE);
+        System.exit(1);
+      }
+      path = properties.getProperty(PATH_PROPERTY);
+      threadsNumber = Integer.parseInt(properties.getProperty(THREADS_NUMBER_PROPERTY));
     } catch (IOException exception) {
       logger.error("cannot read config file: " + CONFIG_FILE);
       System.exit(1);
-      return null;
     }
     try {
       is.close();
@@ -59,8 +68,8 @@ public class ConfigLoader {
     if (!Files.exists(Paths.get(path))) {
       logger.error("base folder doesn't exist: " + path);
       System.exit(1);
-      return null;
     }
-    return path;
+    this.path = path;
+    this.threadsNumber = threadsNumber;
   }
 }
