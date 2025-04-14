@@ -16,6 +16,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -26,8 +28,8 @@ import org.springframework.stereotype.Service;
 public class DownloadService {
   private final String basePath;
   private String message;
-  private int downloadedImagesAmount;
-  private int imgFailedToDownloadAmount;
+  private final AtomicInteger imgFailedToDownloadAmount = new AtomicInteger(0);
+  private final AtomicInteger downloadedImagesAmount = new AtomicInteger(0);
   private final ExecutorService executorService;
 
   public DownloadService(ConfigLoader configLoader) {
@@ -52,17 +54,9 @@ public class DownloadService {
     String truncatedUrl = htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
     var imgUrls = parseImgUrls(truncatedUrl, html);
     var folderName = new File(form.getFolderName());
-    Future<?> imgDownloadFuture = executorService.submit(() ->
-        downloadImagesIntoFolder(imgUrls, folderName.getPath()));
-    try {
-      imgDownloadFuture.get();
-    } catch (InterruptedException exception) {
-    } catch (ExecutionException exception) {
-      imgFailedToDownloadAmount++;
-    }
-    //executorService.shutdown();
-    return new DownloadResponseDto(imgUrls.size() - imgFailedToDownloadAmount,
-        imgFailedToDownloadAmount, message);
+    downloadImagesIntoFolder(imgUrls, folderName.getPath());
+    return new DownloadResponseDto(downloadedImagesAmount.get(), imgFailedToDownloadAmount.get(),
+        message);
   }
 
   private String getHtml(String urlString) {
@@ -91,7 +85,7 @@ public class DownloadService {
     }
     try {
       con.disconnect();
-    } catch (Exception exception) {
+    } catch (Exception ignored) {
     }
     return htmlCode.toString();
   }
@@ -105,60 +99,88 @@ public class DownloadService {
   }
 
   private void downloadImagesIntoFolder(List<String> urls, String folderName) {
-    imgFailedToDownloadAmount = 0;
+    downloadedImagesAmount.set(0);
+    imgFailedToDownloadAmount.set(0);
+
     String folderPath = basePath + "/" + folderName + "/";
     File folder = new File(folderPath);
     if (!folder.exists()) {
       folder.mkdirs();
     }
+
+    List<Future<?>> imgDownloadFutures = new ArrayList<>();
     for (String url : urls) {
-      URL imgUrl;
-      try {
-        imgUrl = new URL(url);
-      } catch (MalformedURLException exception) {
-        imgFailedToDownloadAmount++;
-        continue;
-      }
-      String filename;
-      int lastSlash = url.lastIndexOf("/");
-      if (lastSlash != -1) {
-        filename = url.substring(lastSlash + 1)
-            .replaceAll("[^a-zA-Z0-9\\\\.\\-]", "_");
-      } else {
-        filename = url.replaceAll("[^a-zA-Z0-9\\\\.\\-]", "_");
-      }
-      int lastDotIndex = filename.lastIndexOf(".");
-      String filenameWithoutExtension =
-          lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
-      String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
-      long filesWithSameNameAmount =
-          Stream.of(Objects.requireNonNull(new File(folderPath).listFiles()))
-              .map(File::getName)
-              .filter(name -> name.startsWith(filenameWithoutExtension))
-              .count();
-      if (filesWithSameNameAmount > 0) {
-        filename = filenameWithoutExtension + "(" + filesWithSameNameAmount + ")"
-            + extension;
-      }
-      InputStream in = null;
-      OutputStream out = null;
-      try {
-        in = new BufferedInputStream(imgUrl.openStream());
-        out = new BufferedOutputStream(
-            new FileOutputStream(folderPath + "/" + filename));
-        for (int j; (j = in.read()) != -1; ) {
-          out.write(j);
-        }
-      } catch (IOException e) {
-        imgFailedToDownloadAmount++;
-      }
-      if (in != null && out != null) {
+      imgDownloadFutures.add(executorService.submit(() -> {
+        URL imgUrl = null;
         try {
-          in.close();
-          out.close();
-        } catch (IOException exception) {
+          imgUrl = new URL(url);
+        } catch (MalformedURLException exception) {
+          imgFailedToDownloadAmount.incrementAndGet();
         }
+        String filename = getFilenameFromUrl(url);
+        filename = getFilenameWithNumber(filename, folderPath);
+
+        InputStream in = null;
+        OutputStream out = null;
+        if (imgUrl != null) {
+          try {
+            in = new BufferedInputStream(imgUrl.openStream());
+            out = new BufferedOutputStream(
+                new FileOutputStream(folderPath + "/" + filename));
+            for (int j; (j = in.read()) != -1; ) {
+              out.write(j);
+            }
+            downloadedImagesAmount.incrementAndGet();
+          } catch (Exception e) {
+            imgFailedToDownloadAmount.incrementAndGet();
+          }
+        }
+        if (in != null && out != null) {
+          try {
+            in.close();
+            out.close();
+          } catch (IOException ignored) {
+          }
+        }
+      }));
+    }
+    for (Future<?> future : imgDownloadFutures) {
+      try {
+        future.get();
+      } catch (InterruptedException ignored) {
+      } catch (ExecutionException exception) {
+        imgFailedToDownloadAmount.incrementAndGet();
       }
     }
+
+  }
+
+  private static String getFilenameWithNumber(String filename, String folderPath) {
+    int lastDotIndex = filename.lastIndexOf(".");
+    String filenameWithoutExtension =
+        lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+    String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
+    AtomicLong filesWithSameNameAmount =
+        new AtomicLong(Stream.of(Objects.requireNonNull(new File(folderPath).listFiles()))
+            .map(File::getName)
+            .filter(name -> name.startsWith(filenameWithoutExtension))
+            .count());
+    if (filesWithSameNameAmount.get() > 0) {
+      filename = filenameWithoutExtension + "(" + filesWithSameNameAmount + ")"
+          + extension;
+    }
+    return filename;
+  }
+
+  private static String getFilenameFromUrl(String url) {
+    String filename = url.endsWith("/") ? url.substring(0, url.length() - 2) : url;
+    int lastSlash = filename.lastIndexOf("/");
+    if (lastSlash != -1) {
+      filename = filename.substring(lastSlash + 1)
+          .replaceAll("[^a-zA-Z0-9\\\\.\\-]", "_");
+    } else {
+      filename = filename.replaceAll("[^a-zA-Z0-9\\\\.\\-]", "_");
+    }
+    return filename;
   }
 }

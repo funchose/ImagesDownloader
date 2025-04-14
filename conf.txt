@@ -1,2 +1,2 @@
 folder=out
-threads=5
+threads=1
