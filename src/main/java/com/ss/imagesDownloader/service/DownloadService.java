@@ -52,6 +52,7 @@ public class DownloadService {
       return new DownloadResponseDto(0, 0, message);
     }
     AtomicReference<String> html = new AtomicReference<>();
+
     try {
       Future<?> future = executorService.submit(() -> {
         html.set(getHtml(htmlUrl));
@@ -68,6 +69,7 @@ public class DownloadService {
     return new DownloadResponseDto(downloadedImagesAmount.get(), imgFailedToDownloadAmount.get(),
         message);
   }
+
 
   private String getHtml(String urlString) {
     BufferedReader reader;
@@ -129,17 +131,20 @@ public class DownloadService {
         }
         String filename = getFilenameFromUrl(url);
         filename = getFilenameWithNumber(filename, folderPath);
+        //String filename = getFilenameWithHash(url, folderPath);
 
         InputStream in = null;
         OutputStream out = null;
         if (imgUrl != null) {
           try {
+            var imgFile = new File(folderPath + "/" + filename);
             in = new BufferedInputStream(imgUrl.openStream());
             out = new BufferedOutputStream(
-                new FileOutputStream(folderPath + "/" + filename));
+                new FileOutputStream(imgFile));
             for (int j; (j = in.read()) != -1; ) {
               out.write(j);
             }
+
             downloadedImagesAmount.incrementAndGet();
           } catch (Exception e) {
             imgFailedToDownloadAmount.incrementAndGet();
@@ -180,6 +185,15 @@ public class DownloadService {
           + extension;
     }
     return filename;
+  }
+
+  private static String getFilenameWithTime(String url, String folderPath) {
+    String filename = getFilenameFromUrl(url);
+    int lastDotIndex = filename.lastIndexOf(".");
+    String filenameWithoutExtension =
+        lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+    String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
+    return filename + "_" + System.currentTimeMillis();
   }
 
   private static String getFilenameFromUrl(String url) {
