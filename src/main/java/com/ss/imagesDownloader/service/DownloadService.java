@@ -11,15 +11,12 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -40,6 +37,7 @@ public class DownloadService {
   }
 
   public DownloadResponseDto downloadImagesFromUrl(DownloadFormDto form) {
+    //url validation
     String htmlUrl = form.getUrl();
     if (htmlUrl.isEmpty() || form.getFolderName().isEmpty()) {
       if (htmlUrl.isEmpty()) {
@@ -51,17 +49,21 @@ public class DownloadService {
       message = "";
       return new DownloadResponseDto(0, 0, message);
     }
-    AtomicReference<String> html = new AtomicReference<>();
 
+    //html downloading
+    AtomicReference<String> html = new AtomicReference<>();
     try {
       Future<?> future = executorService.submit(() -> {
         html.set(getHtml(htmlUrl));
       });
       future.get();
-      String truncatedUrl = htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
-      var imgUrls = parseImgUrls(truncatedUrl, html.get());
-      var folderName = new File(form.getFolderName());
-      downloadImagesIntoFolder(imgUrls, folderName.getPath());
+      String truncatedUrl =
+          htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
+
+      //images downloading
+      String folderName = form.getFolderName();
+      List<String> imgUrls = parseImgUrls(truncatedUrl, html.get());
+      downloadImagesIntoFolder(imgUrls, folderName);
     } catch (InterruptedException ignored) {
     } catch (ExecutionException exception) {
       imgFailedToDownloadAmount.incrementAndGet();
@@ -69,7 +71,6 @@ public class DownloadService {
     return new DownloadResponseDto(downloadedImagesAmount.get(), imgFailedToDownloadAmount.get(),
         message);
   }
-
 
   private String getHtml(String urlString) {
     BufferedReader reader;
@@ -130,21 +131,18 @@ public class DownloadService {
           imgFailedToDownloadAmount.incrementAndGet();
         }
         String filename = getFilenameFromUrl(url);
-        filename = getFilenameWithNumber(filename, folderPath);
-        //String filename = getFilenameWithHash(url, folderPath);
 
         InputStream in = null;
         OutputStream out = null;
         if (imgUrl != null) {
           try {
-            var imgFile = new File(folderPath + "/" + filename);
+            File imgFile = getFileToWriteImg(filename, folderPath);
             in = new BufferedInputStream(imgUrl.openStream());
             out = new BufferedOutputStream(
                 new FileOutputStream(imgFile));
             for (int j; (j = in.read()) != -1; ) {
               out.write(j);
             }
-
             downloadedImagesAmount.incrementAndGet();
           } catch (Exception e) {
             imgFailedToDownloadAmount.incrementAndGet();
@@ -167,37 +165,10 @@ public class DownloadService {
         imgFailedToDownloadAmount.incrementAndGet();
       }
     }
-
-  }
-
-  private static String getFilenameWithNumber(String filename, String folderPath) {
-    int lastDotIndex = filename.lastIndexOf(".");
-    String filenameWithoutExtension =
-        lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
-    String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
-    AtomicLong filesWithSameNameAmount =
-        new AtomicLong(Stream.of(Objects.requireNonNull(new File(folderPath).listFiles()))
-            .map(File::getName)
-            .filter(name -> name.startsWith(filenameWithoutExtension))
-            .count());
-    if (filesWithSameNameAmount.get() > 0) {
-      filename = filenameWithoutExtension + "(" + filesWithSameNameAmount + ")"
-          + extension;
-    }
-    return filename;
-  }
-
-  private static String getFilenameWithTime(String url, String folderPath) {
-    String filename = getFilenameFromUrl(url);
-    int lastDotIndex = filename.lastIndexOf(".");
-    String filenameWithoutExtension =
-        lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
-    String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
-    return filename + "_" + System.currentTimeMillis();
   }
 
   private static String getFilenameFromUrl(String url) {
-    String filename = url.endsWith("/") ? url.substring(0, url.length() - 2) : url;
+    String filename = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     int lastSlash = filename.lastIndexOf("/");
     if (lastSlash != -1) {
       filename = filename.substring(lastSlash + 1)
@@ -206,5 +177,22 @@ public class DownloadService {
       filename = filename.replaceAll("[^a-zA-Z0-9\\\\.\\-]", "_");
     }
     return filename;
+  }
+
+  private static File getFileToWriteImg(String filename, String folderPath) throws IOException {
+    int lastDotIndex = filename.lastIndexOf(".");
+    String filenameWithoutExtension =
+        lastDotIndex != -1 ? filename.substring(0, lastDotIndex) : filename;
+    String extension = lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
+
+    File imgFile = new File(folderPath + "/" + filename);
+    int counter = 1;
+    while (!imgFile.createNewFile()) {
+      filename = filenameWithoutExtension + "(" + counter + ")"
+          + extension;
+      imgFile = new File(folderPath + "/" + filename);
+      counter++;
+    }
+    return imgFile;
   }
 }
