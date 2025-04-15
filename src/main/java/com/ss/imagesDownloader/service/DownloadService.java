@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -50,11 +51,20 @@ public class DownloadService {
       message = "";
       return new DownloadResponseDto(0, 0, message);
     }
-    var html = getHtml(htmlUrl);
-    String truncatedUrl = htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
-    var imgUrls = parseImgUrls(truncatedUrl, html);
-    var folderName = new File(form.getFolderName());
-    downloadImagesIntoFolder(imgUrls, folderName.getPath());
+    AtomicReference<String> html = new AtomicReference<>();
+    try {
+      Future<?> future = executorService.submit(() -> {
+        html.set(getHtml(htmlUrl));
+      });
+      future.get();
+      String truncatedUrl = htmlUrl.contains("?") ? htmlUrl.substring(htmlUrl.indexOf("?")) : htmlUrl;
+      var imgUrls = parseImgUrls(truncatedUrl, html.get());
+      var folderName = new File(form.getFolderName());
+      downloadImagesIntoFolder(imgUrls, folderName.getPath());
+    } catch (InterruptedException ignored) {
+    } catch (ExecutionException exception) {
+      imgFailedToDownloadAmount.incrementAndGet();
+    }
     return new DownloadResponseDto(downloadedImagesAmount.get(), imgFailedToDownloadAmount.get(),
         message);
   }
