@@ -9,13 +9,15 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-public class HtmlThread extends Thread{
+public class HtmlThread extends Thread {
   public static final String STATE_NEW = "New";
   public static final String STATE_RUNNING = "Running";
   public static final String STATE_FINISHED = "Finished";
@@ -25,16 +27,21 @@ public class HtmlThread extends Thread{
   private String url;
   private String stateVl;
   private String errorMessage;
+  private String folderPath;
   private long idVl = ID++;
-  private ArrayList<String> images = new ArrayList<>();
+  private ArrayList<String> imgUrls = new ArrayList<>();
   private ExecutionService__I executionService;
   private CounterDto counterDto = new CounterDto();
+  private String timestamp;
 
 
-  public HtmlThread(String url, ExecutionService__I executionService) {
+  public HtmlThread(String url, String folderPath, ExecutionService__I executionService) {
     this.url = url;
+    this.folderPath = folderPath;
     this.stateVl = STATE_NEW;
     this.executionService = executionService;
+    this.timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        .format(Calendar.getInstance().getTime());
   }
 
   public String getStateVl() {
@@ -50,19 +57,24 @@ public class HtmlThread extends Thread{
     return idVl;
   }
 
-  public ArrayList<String> getImages() {
-    return images;
+  public ArrayList<String> getImgUrls() {
+    return imgUrls;
   }
 
   public boolean isFinished() {
     return STATE_FINISHED.equals(stateVl);
   }
+
   public boolean isError() {
     return STATE_ERROR.equals(stateVl);
   }
 
   public CounterDto getCounterDto() {
     return counterDto;
+  }
+
+  public String getTimestamp() {
+    return timestamp;
   }
 
   @Override
@@ -75,14 +87,15 @@ public class HtmlThread extends Thread{
       errorMessage = e.getMessage();
       return;
     }
-    images.addAll(parseImgUrls(url, html));
-    counterDto.addTotal(images.size());
-    for (String imgUrl : images) {
-      ImageThread imgThread = new ImageThread(counterDto);
+    imgUrls.addAll(parseImgUrls(url, html));
+    counterDto.setTotal(imgUrls.size());
+    for (String imgUrl : imgUrls) {
+      ImageThread imgThread = new ImageThread(counterDto, folderPath, imgUrl, executionService);
       executionService.submit(imgThread);
     }
     stateVl = STATE_FINISHED;
   }
+
   private String getHtml(String urlString) {
     BufferedReader reader;
     HttpURLConnection con;
@@ -92,7 +105,7 @@ public class HtmlThread extends Thread{
       con.setRequestMethod("GET");
       reader = new BufferedReader(
           new InputStreamReader(con.getInputStream()));
-    } catch (MalformedURLException | ProtocolException exception) {
+    } catch (MalformedURLException | ProtocolException e) {
       throw new ExceptionForUser("URL введен некорректно: " + urlString); //
     } catch (IOException e) {
       throw new ExceptionForUser("Невозможно подключиться к сайту: " + urlString); //

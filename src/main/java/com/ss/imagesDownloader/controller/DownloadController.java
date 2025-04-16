@@ -33,7 +33,12 @@ public class DownloadController {
   public String getStatus(@PathVariable long id, Model model) {
     HtmlThread thread = downloadService.getThread(id);
     if (thread == null) {
-      model.addAttribute("errorMessage", "Поток с id: " + id + " не найден");
+      model.addAttribute("errorMessage",
+          "Поток с id: " + id + " не найден");
+      return "error";
+    }
+    if (thread.isError()) {
+      model.addAttribute("errorMessage", thread.getErrorMessage());
       return "error";
     }
     model.addAttribute("thread", thread);
@@ -46,16 +51,9 @@ public class DownloadController {
     try {
       response = downloadService.downloadImagesFromUrl(form);
     } catch (ExceptionForUser exception) {
-      //response.setErrorMessage(exception.getMessage());
       model.addAttribute("errorMessage", exception.getMessage());
       return "error";
     }
     return "redirect:/status/" + response;
-//    model.addAttribute("downloadFormDto", form);
-//    model.addAttribute("downloadResponseDto", response);
-//    model.addAttribute("downloadedImagesAmount", response.getDownloadedImagesAmount());
-//    model.addAttribute("downloadErrorsAmount", response.getDownloadErrorsAmount());
-//    model.addAttribute("errorMessage", response.getErrorMessage());
-//    return "download";
   }
 }

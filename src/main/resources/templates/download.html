@@ -2,7 +2,7 @@
 <html xmlns:th="https://www.thymeleaf.org" lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Images Downloader</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css"
           rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7"
           crossorigin="anonymous">
@@ -17,35 +17,16 @@
         <label for="formControlInput" class="form-label">URL</label>
         <input type="text" th:field="*{url}" name="url" class="form-control"
                id="formControlInput" placeholder="http://"/>
-
-        <span class="input-incorrect-url" th:if="${downloadFormDto.incorrectUrlMessage} != null"
-              th:text="${downloadFormDto.incorrectUrlMessage}">URL введен некорректно</span>
+        <span th:if="${downloadFormDto.incorrectUrlMessage == true}">Введите корректный URL</span>
         <br/>
         <label for="exampleFormControlInput" class="form-label">Имя папки для скачивания</label>
         <input type="text" th:field="*{folderName}" name="folderName" class="form-control"
                id="exampleFormControlInput"/>
-        <span class="input-incorrect-folder-name" th:if="${downloadFormDto.emptyNameMessage} != null"
-              th:text="${downloadFormDto.emptyNameMessage}">Название папки пустое</span>
+        <span th:if="${downloadFormDto.emptyNameMessage == true}">Название папки не может быть пустым</span>
         <br/>
-        <button type="submit">Submit</button>
+        <button type="submit">Скачать</button>
     </form>
     <br/>
-    <div th:object="${downloadResponseDto}">
-        <label th:if="${downloadResponseDto.downloadedImagesAmount} != 0" for="exampleFormControlInput"
-               class="form-label">Скачано изображений: </label>
-        <span th:if="${downloadResponseDto.downloadedImagesAmount} != 0"
-              th:text="${downloadResponseDto.downloadedImagesAmount}"></span>
-        <br/>
-        <label th:if="${downloadResponseDto.downloadedImagesAmount} != 0" for="exampleFormControlInput"
-               class="form-label">Ошибок скачивания: </label>
-        <span th:if="${downloadResponseDto.downloadedImagesAmount} != 0"
-              th:text="${downloadResponseDto.downloadErrorsAmount}"></span>
-        <br/>
-        <label th:if="${downloadResponseDto.errorMessage} != null" for="exampleFormControlInput"
-               class="form-label">Ошибки: </label>
-        <span th:if="${downloadResponseDto.errorMessage} != null"
-              th:text="${downloadResponseDto.errorMessage}"></span>
-    </div>
 </div>
 </body>
 </html>

@@ -2,10 +2,11 @@ package com.ss.imagesDownloader.dto;
 
 public class DownloadFormDto {
   private String url;
-  private String incorrectUrlMessage;
+  private boolean incorrectUrlMessage = false;
   private String folderName;
-  private String emptyNameMessage;
-  private String incorrectFolderName;
+  private boolean emptyNameMessage = false;
+
+  //private String incorrectFolderName;
   private String response;
 
   public DownloadFormDto() {
@@ -34,20 +35,20 @@ public class DownloadFormDto {
     return folderName;
   }
 
-  public String getIncorrectUrlMessage() {
+  public boolean isIncorrectUrlMessage() {
     return incorrectUrlMessage;
   }
 
-  public DownloadFormDto setIncorrectUrlMessage(String incorrectUrlMessage) {
+  public DownloadFormDto setIncorrectUrlMessage(boolean incorrectUrlMessage) {
     this.incorrectUrlMessage = incorrectUrlMessage;
     return this;
   }
 
-  public String getEmptyNameMessage() {
+  public boolean isEmptyNameMessage() {
     return emptyNameMessage;
   }
 
-  public DownloadFormDto setEmptyNameMessage(String emptyNameMessage) {
+  public DownloadFormDto setEmptyNameMessage(boolean emptyNameMessage) {
     this.emptyNameMessage = emptyNameMessage;
     return this;
   }
@@ -61,12 +62,12 @@ public class DownloadFormDto {
     return this;
   }
 
-  public String getIncorrectFolderName() {
-    return incorrectFolderName;
-  }
-
-  public DownloadFormDto setIncorrectFolderName(String incorrectFolderName) {
-    this.incorrectFolderName = incorrectFolderName;
-    return this;
-  }
+//  public String getIncorrectFolderName() {
+//    return incorrectFolderName;
+//  }
+//
+//  public DownloadFormDto setIncorrectFolderName(String incorrectFolderName) {
+//    this.incorrectFolderName = incorrectFolderName;
+//    return this;
+//  }
 }

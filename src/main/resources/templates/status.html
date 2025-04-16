@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Status</title>
+</head>
+<body>
+<br/>
+<div th:object="${thread}">
+    <label class="form-label">Скачивание началось: </label>
+    <span th:text="${thread.timestamp}"></span>
+    <br/>
+    <label class="form-label">Всего файлов: </label>
+    <span th:text="${thread.counterDto.total}"></span>
+    <br/>
+    <label class="form-label">Скачано изображений: </label>
+    <span th:text="${thread.counterDto.success}"></span>
+    <br/>
+    <label class="form-label">Ошибки скачивания: </label>
+    <span th:text="${thread.counterDto.failed}"></span>
+</div>
+</body>
+</html>
