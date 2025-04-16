@@ -11,6 +11,9 @@ public class DownloadFormDto {
 
   public DownloadFormDto() {
   }
+  public boolean isError() {
+    return incorrectUrlMessage || emptyNameMessage;
+  }
 
   public DownloadFormDto(String url, String folderName) {
     this.url = url;

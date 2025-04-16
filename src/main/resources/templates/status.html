@@ -19,5 +19,13 @@
     <label class="form-label">Ошибки скачивания: </label>
     <span th:text="${thread.counterDto.failed}"></span>
 </div>
+
+<div>
+<script th:if="${thread != null and !thread.isFinished and !thread.isError}">
+    setTimeout(function(){
+    location.reload();
+    }, 3000);
+</script>
+</div>
 </body>
 </html>

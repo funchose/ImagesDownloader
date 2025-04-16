@@ -1,7 +1,6 @@
 package com.ss.imagesDownloader.controller;
 
 import com.ss.imagesDownloader.dto.DownloadFormDto;
-import com.ss.imagesDownloader.dto.DownloadResponseDto;
 import com.ss.imagesDownloader.exceptions.ExceptionForUser;
 import com.ss.imagesDownloader.service.DownloadService;
 import com.ss.imagesDownloader.service.HtmlThread;
@@ -24,8 +23,6 @@ public class DownloadController {
   public String downloadSubmit(Model model) {
     DownloadFormDto form = new DownloadFormDto();
     model.addAttribute("downloadFormDto", form);
-    DownloadResponseDto response = new DownloadResponseDto();
-    model.addAttribute("downloadResponseDto", response);
     return "download";
   }
 
@@ -50,6 +47,10 @@ public class DownloadController {
     long response = 0;
     try {
       response = downloadService.downloadImagesFromUrl(form);
+      if (form.isError()) {
+        model.addAttribute("downloadFormDto", form);
+        return "download";
+      }
     } catch (ExceptionForUser exception) {
       model.addAttribute("errorMessage", exception.getMessage());
       return "error";

@@ -2,7 +2,6 @@ package com.ss.imagesDownloader.service;
 
 import com.ss.imagesDownloader.ConfigLoader;
 import com.ss.imagesDownloader.dto.DownloadFormDto;
-import com.ss.imagesDownloader.exceptions.ExceptionForUser;
 import java.io.File;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
@@ -32,12 +31,12 @@ public class DownloadService implements ExecutionService__I {
     String htmlUrl = form.getUrl();
     if (htmlUrl.isEmpty() || form.getFolderName().isEmpty()) {
       if (htmlUrl.isEmpty()) {
-        throw new ExceptionForUser("Url не должен быть пустым");
-        //form.setIncorrectUrlMessage(true); //как обновлять страницу и выводить эту ошибку пользователю?
+        form.setIncorrectUrlMessage(true); //как обновлять страницу и выводить эту ошибку пользователю?
+        //throw new ExceptionForUser("Url не должен быть пустым");
       }
       if (form.getFolderName().isEmpty()) {
-        throw new ExceptionForUser("Название папки не должно быть пустым");
-        //form.setEmptyNameMessage(true); //как обновлять страницу и выводить эту ошибку пользователю?
+        form.setEmptyNameMessage(true); //как обновлять страницу и выводить эту ошибку пользователю?
+        //throw new ExceptionForUser("Название папки не должно быть пустым");
       }
       message = "";
       return NO_ID;
